@@ -37,7 +37,7 @@
          line-height: 24px; text-align: center; border-radius: 50%; }
   .day.today .num { background: var(--today); color: var(--ink); }
   .ev { display: block; margin-top: 4px; padding: 3px 6px; border-radius: 6px; font-size: 0.72rem;
-        color: #fff; background: var(--c, var(--accent)); cursor: pointer; overflow: hidden;
+        color: var(--t, #fff); background: var(--c, var(--accent)); cursor: pointer; overflow: hidden;
         white-space: nowrap; text-overflow: ellipsis; border: 0; width: 100%; text-align: left; font-family: inherit; }
   .status { color: var(--muted); font-size: 0.9rem; margin: 8px 0; min-height: 1.2em; }
   .upcoming { margin-top: 28px; }
@@ -58,10 +58,17 @@
   input, select, textarea { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px;
          font: inherit; background: #fff; color: var(--ink); }
   .row { display: flex; gap: 10px; } .row > div { flex: 1; }
-  .tag { display: inline-block; padding: 2px 10px; border-radius: 999px; color: #fff; font-size: 0.75rem;
+  .tag { display: inline-block; padding: 2px 10px; border-radius: 999px; color: var(--t, #fff); font-size: 0.75rem;
          background: var(--c, var(--accent)); }
   .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; flex-wrap: wrap; }
   .actions .spacer { flex: 1; }
+  .palette { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; }
+  .sw { aspect-ratio: 1; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0;
+        background: var(--c); box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
+  .sw.sel { border-color: var(--ink); box-shadow: 0 0 0 2px #fff inset; }
+  .custom { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 0.85rem; color: var(--muted); }
+  .custom input { width: 44px; height: 30px; padding: 2px; }
+  .preview { display: inline-block; margin-left: auto; padding: 3px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; }
   .err { color: var(--danger); font-size: 0.85rem; margin-top: 8px; min-height: 1em; }
   @media (max-width: 640px) {
     .day { min-height: 62px; padding: 3px; }
@@ -109,7 +116,8 @@
   <form id="form">
     <h3 id="formTitle">Anotar examen</h3>
     <label for="fMateria">Materia</label>
-    <input id="fMateria" required placeholder="Ej: Análisis Matemático II">
+    <input id="fMateria" required placeholder="Ej: Análisis Matemático II" list="materias" autocomplete="off">
+    <datalist id="materias"></datalist>
     <div class="row">
       <div><label for="fFecha">Fecha</label><input id="fFecha" type="date" required></div>
       <div><label for="fHora">Hora</label><input id="fHora" type="time"></div>
@@ -119,6 +127,10 @@
       <option>Parcial</option><option>Recuperatorio</option><option>Final</option>
       <option>Entrega / TP</option><option>Otro</option>
     </select>
+    <label>Color</label>
+    <div class="palette" id="palette"></div>
+    <div class="custom">Otro color: <input type="color" id="fColor">
+      <span class="preview" id="preview">Así se va a ver</span></div>
     <label for="fLugar">Aula / Lugar</label>
     <input id="fLugar" placeholder="Ej: Aula 204, Sede Centro">
     <label for="fNotas">Notas</label>
@@ -139,7 +151,34 @@ const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto"
 const DIAS = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
 const COLORS = { Parcial: "var(--Parcial)", Final: "var(--Final)", Recuperatorio: "var(--Recuperatorio)",
                  "Entrega / TP": "var(--Entrega)", Otro: "var(--Otro)" };
+const PALETA = ["#e6194b","#f58231","#ffb000","#bfa000","#8bc34a","#3cb44b","#009688","#00bcd4",
+                "#4363d8","#3f51b5","#911eb4","#c2477a","#f032e6","#e91e63","#795548","#9a6324",
+                "#800000","#808000","#469990","#000075","#607d8b","#fabed4","#aaffc3","#dcbeff"];
 const $ = id => document.getElementById(id);
+// Texto blanco o negro según lo claro que sea el color
+function textOn(hex) {
+  const m = String(hex).match(/^#?([0-9a-f]{6})$/i); if (!m) return "#fff";
+  const n = parseInt(m[1], 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 160 ? "#2b2433" : "#fff";
+}
+function examColor(e) { return /^#[0-9a-f]{6}$/i.test(e.color || "") ? e.color : color(e.tipo); }
+function styleFor(e) { const c = examColor(e); return `--c:${c};--t:${textOn(c)}`; }
+function colorDeMateria(materia) {
+  const m = materia.trim().toLowerCase(); if (!m) return null;
+  const e = [...exams].reverse().find(x => x.materia.trim().toLowerCase() === m && x.color);
+  return e ? e.color : null;
+}
+function colorLibre() {
+  const usados = new Set(exams.map(e => (e.color || "").toLowerCase()));
+  return PALETA.find(c => !usados.has(c)) || PALETA[exams.length % PALETA.length];
+}
+let colorElegido = PALETA[0], colorTocado = false;
+function pickColor(c, manual) {
+  colorElegido = c; if (manual) colorTocado = true;
+  $("fColor").value = c;
+  document.querySelectorAll(".sw").forEach(b => b.classList.toggle("sel", b.dataset.c.toLowerCase() === c.toLowerCase()));
+  $("preview").style.background = c; $("preview").style.color = textOn(c);
+}
 const dlgVer = $("dlgVer"), dlgForm = $("dlgForm");
 
 let exams = [];
@@ -209,6 +248,7 @@ async function send(payload, errEl) {
 }
 
 function render() {
+  $("materias").innerHTML = [...new Set(exams.map(e => e.materia))].map(m => `<option value="${esc(m)}">`).join("");
   $("month").textContent = `${MESES[view.getMonth()]} ${view.getFullYear()}`;
   const grid = $("grid");
   grid.innerHTML = DIAS.map(d => `<div class="dow">${d}</div>`).join("");
@@ -220,15 +260,16 @@ function render() {
   start.setDate(start.getDate() - (start.getDay() + 6) % 7); // lunes primero
   const todayKey = key(new Date());
 
-  for (let i = 0; i < 42; i++) {
+  const diasMes = new Date(view.getFullYear(), view.getMonth() + 1, 0).getDate();
+  const celdas = Math.ceil(((view.getDay() + 6) % 7 + diasMes) / 7) * 7;
+  for (let i = 0; i < celdas; i++) {
     const d = new Date(start); d.setDate(start.getDate() + i);
-    if (i >= 35 && d.getMonth() !== view.getMonth()) break;
     const cls = ["day"];
     if (d.getMonth() !== view.getMonth()) cls.push("out");
     if (key(d) === todayKey) cls.push("today");
     const evs = (byDay[key(d)] || []).map(idx => {
       const e = exams[idx];
-      return `<button class="ev" style="--c:${color(e.tipo)}" data-idx="${idx}" title="${esc(e.materia)}">${e.hora ? esc(e.hora) + " " : ""}${esc(e.materia)}</button>`;
+      return `<button class="ev" style="${styleFor(e)}" data-idx="${idx}" title="${esc(e.materia)}">${e.hora ? esc(e.hora) + " " : ""}${esc(e.materia)}</button>`;
     }).join("");
     grid.insertAdjacentHTML("beforeend", `<div class="${cls.join(" ")}" data-date="${iso(d)}"><span class="num">${d.getDate()}</span>${evs}</div>`);
   }
@@ -238,7 +279,7 @@ function render() {
   $("list").innerHTML = next.length ? next.map(([e, i]) => {
     const days = Math.round((e.date - today) / 86400000);
     const left = days === 0 ? "¡Hoy!" : days === 1 ? "Mañana" : `Faltan ${days} días`;
-    return `<div class="item" style="--c:${color(e.tipo)}" data-idx="${i}">
+    return `<div class="item" style="${styleFor(e)}" data-idx="${i}">
       <div class="date">${e.date.getDate()}<small>${MESES[e.date.getMonth()].slice(0, 3)}</small></div>
       <div class="info"><b>${esc(e.materia)}</b>
         <span>${esc(e.tipo)}${e.hora ? " · " + esc(e.hora) : ""}${e.lugar ? " · " + esc(e.lugar) : ""}</span></div>
@@ -250,7 +291,7 @@ function show(i) {
   const e = exams[i]; currentIdx = i;
   const fecha = e.date.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   $("verBody").innerHTML = `
-    <span class="tag" style="--c:${color(e.tipo)}">${esc(e.tipo)}</span>
+    <span class="tag" style="${styleFor(e)}">${esc(e.tipo)}</span>
     <h3 style="margin-top:8px">${esc(e.materia)}</h3>
     <p>📅 ${esc(fecha)}${e.hora ? " · 🕒 " + esc(e.hora) : ""}</p>
     ${e.lugar ? `<p>📍 ${esc(e.lugar)}</p>` : ""}
@@ -269,10 +310,20 @@ function openForm(exam, fecha) {
   $("fLugar").value = exam?.lugar || "";
   $("fNotas").value = exam?.notas || "";
   $("formErr").textContent = "";
+  colorTocado = !!exam;
+  pickColor(exam ? examColor(exam) : colorLibre(), false);
   dlgForm.showModal();
 }
 
 // Eventos
+$("palette").innerHTML = PALETA.map(c => `<button type="button" class="sw" style="--c:${c}" data-c="${c}" aria-label="Color ${c}"></button>`).join("");
+$("palette").onclick = ev => { const b = ev.target.closest(".sw"); if (b) pickColor(b.dataset.c, true); };
+$("fColor").oninput = ev => pickColor(ev.target.value, true);
+// Si la materia ya existe, usa su mismo color (salvo que se haya elegido uno a mano)
+$("fMateria").addEventListener("input", () => {
+  if (colorTocado) return;
+  pickColor(colorDeMateria($("fMateria").value) || colorLibre(), false);
+});
 $("add").onclick = () => openForm(null);
 $("grid").addEventListener("click", ev => {
   const b = ev.target.closest(".ev");
@@ -295,7 +346,7 @@ $("verBorrar").onclick = async () => {
 $("form").onsubmit = async ev => {
   ev.preventDefault();
   const examen = { materia: $("fMateria").value.trim(), fecha: $("fFecha").value, hora: $("fHora").value,
-                   tipo: $("fTipo").value, lugar: $("fLugar").value.trim(), notas: $("fNotas").value.trim() };
+                   tipo: $("fTipo").value, lugar: $("fLugar").value.trim(), notas: $("fNotas").value.trim(), color: colorElegido };
   $("fGuardar").disabled = true; $("fGuardar").textContent = "Guardando…";
   const ok = await send(editingId ? { accion: "editar", id: editingId, examen } : { accion: "agregar", examen }, $("formErr"));
   $("fGuardar").disabled = false; $("fGuardar").textContent = "Guardar";

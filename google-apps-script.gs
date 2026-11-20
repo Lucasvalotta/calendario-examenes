@@ -8,16 +8,20 @@
 const CLAVE = "cambiame";
 
 const HOJA = "Examenes";
-const COLUMNAS = ["id", "fecha", "materia", "hora", "tipo", "lugar", "notas"];
+const COLUMNAS = ["id", "fecha", "materia", "hora", "tipo", "lugar", "notas", "color"];
 
 function hoja_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sh = ss.getSheetByName(HOJA);
   if (!sh) {
     sh = ss.insertSheet(HOJA);
-    sh.getRange("A:G").setNumberFormat("@"); // todo como texto
+    sh.getRange("A:H").setNumberFormat("@"); // todo como texto
     sh.appendRow(COLUMNAS);
     sh.setFrozenRows(1);
+  }
+  if (sh.getRange(1, 8).getValue() !== "color") {
+    sh.getRange("H:H").setNumberFormat("@");
+    sh.getRange(1, 8).setValue("color");
   }
   return sh;
 }
@@ -37,6 +41,7 @@ function listar_() {
     tipo: texto_(f[4]),
     lugar: texto_(f[5]),
     notas: texto_(f[6]),
+    color: texto_(f[7]),
   }));
 }
 
@@ -56,19 +61,19 @@ function doPost(e) {
     if (CLAVE && d.clave !== CLAVE) return json_({ ok: false, error: "clave" });
 
     const sh = hoja_();
-    const fila = ex => [ex.fecha, ex.materia, ex.hora, ex.tipo, ex.lugar, ex.notas].map(v => String(v ?? ""));
+    const fila = ex => [ex.fecha, ex.materia, ex.hora, ex.tipo, ex.lugar, ex.notas, ex.color].map(v => String(v ?? ""));
 
     if (d.accion === "probar") {
       // solo verifica la clave
     } else if (d.accion === "agregar") {
       const r = sh.getLastRow() + 1;
-      sh.getRange(r, 1, 1, 7).setNumberFormat("@").setValues([[Utilities.getUuid(), ...fila(d.examen)]]);
+      sh.getRange(r, 1, 1, 8).setNumberFormat("@").setValues([[Utilities.getUuid(), ...fila(d.examen)]]);
     } else if (d.accion === "editar" || d.accion === "borrar") {
       const ids = sh.getRange(1, 1, sh.getLastRow(), 1).getValues().map(r => String(r[0]));
       const i = ids.indexOf(String(d.id));
       if (i < 1) return json_({ ok: false, error: "no_encontrado" });
       if (d.accion === "borrar") sh.deleteRow(i + 1);
-      else sh.getRange(i + 1, 2, 1, 6).setNumberFormat("@").setValues([fila(d.examen)]);
+      else sh.getRange(i + 1, 2, 1, 7).setNumberFormat("@").setValues([fila(d.examen)]);
     } else {
       return json_({ ok: false, error: "accion" });
     }
