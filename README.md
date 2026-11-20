@@ -1,20 +1,24 @@
 # 📅 Calendario de exámenes
 
-Un calendario para anotar los exámenes de la facu.
+Calendario para anotar los exámenes de la facu: https://lucasvalotta.github.io/calendario-examenes/
 
-## Cómo anotar un examen
+## Cómo se usa
 
-1. Abrí el calendario (la página de GitHub Pages de este repo).
-2. Tocá **＋ Anotar examen**.
-3. Completá materia, fecha (DD/MM/AAAA), hora, tipo y aula, y tocá **Create / Submit**.
-4. Volvé al calendario: el examen aparece en el día que corresponde (puede tardar unos segundos).
+- **Anotar:** tocá **＋ Anotar examen** o tocá un día del calendario.
+- **Ver, editar o borrar:** tocá el examen en el calendario o en la lista de próximos.
+- La primera vez te pide la **clave**; queda guardada en ese celular o compu.
 
-## Cómo borrar o cambiar un examen
+## Dónde se guardan los datos
 
-- **Borrar:** abrí el examen (en el calendario tocá el examen → "Editar / borrar") y tocá **Close issue**.
-- **Cambiar:** en esa misma página, editá el texto del examen (los tres puntitos → *Edit*).
+En una planilla de Google Sheets, a través de un pequeño script (`google-apps-script.gs`).
 
-## Cómo funciona
+### Configuración (una sola vez)
 
-Cada examen es un *issue* de GitHub con la etiqueta `examen`. La página `index.html`
-lee los issues abiertos y los dibuja en el calendario. No hay base de datos ni servidor.
+1. Creá una planilla nueva en https://sheets.new
+2. Menú **Extensiones → Apps Script**. Borrá lo que hay, pegá el contenido de `google-apps-script.gs`
+   y cambiá `CLAVE` por la clave que quieras. Guardá (💾).
+3. **Implementar → Nueva implementación** → tipo **Aplicación web**:
+   - Ejecutar como: **Yo**
+   - Quién tiene acceso: **Cualquier usuario**
+4. Autorizá los permisos (si aparece "Google no verificó esta app": *Configuración avanzada → Ir a … (no seguro)*).
+5. Copiá la **URL de la aplicación web** (termina en `/exec`) y ponela en `API_URL` dentro de `index.html`.

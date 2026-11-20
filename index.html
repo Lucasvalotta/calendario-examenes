@@ -7,7 +7,7 @@
 <style>
   :root {
     --bg: #fdf8f3; --card: #ffffff; --ink: #2b2433; --muted: #8a8094;
-    --line: #ece4dc; --accent: #c2477a; --accent-soft: #f9e3ec; --today: #ffd98a;
+    --line: #ece4dc; --accent: #c2477a; --today: #ffd98a; --danger: #c23b3b;
     --Parcial: #c2477a; --Final: #7a3fc2; --Recuperatorio: #d9822b;
     --Entrega: #2b8fa6; --Otro: #6b7a5a;
   }
@@ -19,15 +19,18 @@
   h1 { margin: 0; font-size: 1.6rem; }
   h1 span { color: var(--accent); }
   .btn { display: inline-block; background: var(--accent); color: #fff; text-decoration: none;
-         padding: 10px 16px; border-radius: 999px; font-weight: 600; border: 0; cursor: pointer; font-size: 0.95rem; }
+         padding: 10px 16px; border-radius: 999px; font-weight: 600; border: 0; cursor: pointer; font-size: 0.95rem; font-family: inherit; }
   .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  .btn.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+  .btn:disabled { opacity: 0.5; cursor: wait; }
   .nav { display: flex; align-items: center; gap: 10px; margin: 22px 0 12px; }
   .nav h2 { margin: 0; font-size: 1.25rem; min-width: 190px; text-transform: capitalize; }
   .grid { display: grid; grid-template-columns: repeat(7, 1fr); background: var(--card);
           border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
   .dow { padding: 8px 6px; font-size: 0.75rem; font-weight: 700; color: var(--muted);
          text-transform: uppercase; border-bottom: 1px solid var(--line); text-align: center; }
-  .day { min-height: 96px; padding: 6px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .day { min-height: 96px; padding: 6px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); cursor: pointer; }
+  .day:hover { background: #fff7fa; }
   .day:nth-child(7n) { border-right: 0; }
   .day.out { background: #faf6f2; color: #c9bfb5; }
   .num { font-size: 0.8rem; font-weight: 600; display: inline-block; width: 24px; height: 24px;
@@ -36,7 +39,7 @@
   .ev { display: block; margin-top: 4px; padding: 3px 6px; border-radius: 6px; font-size: 0.72rem;
         color: #fff; background: var(--c, var(--accent)); cursor: pointer; overflow: hidden;
         white-space: nowrap; text-overflow: ellipsis; border: 0; width: 100%; text-align: left; font-family: inherit; }
-  .status { color: var(--muted); font-size: 0.9rem; margin: 8px 0; }
+  .status { color: var(--muted); font-size: 0.9rem; margin: 8px 0; min-height: 1.2em; }
   .upcoming { margin-top: 28px; }
   .upcoming h3 { margin: 0 0 10px; }
   .item { display: flex; gap: 14px; align-items: center; background: var(--card); border: 1px solid var(--line);
@@ -47,13 +50,19 @@
   .item .info b { display: block; }
   .item .info span { color: var(--muted); font-size: 0.85rem; }
   .left { font-size: 0.8rem; font-weight: 700; color: var(--accent); white-space: nowrap; }
-  dialog { border: 0; border-radius: 16px; padding: 22px; max-width: 420px; width: 92%; }
+  dialog { border: 0; border-radius: 16px; padding: 22px; max-width: 440px; width: 92%; }
   dialog::backdrop { background: rgba(30, 20, 40, 0.4); }
-  dialog h3 { margin: 0 0 4px; }
+  dialog h3 { margin: 0 0 12px; }
   dialog p { margin: 6px 0; }
+  label { display: block; font-size: 0.85rem; font-weight: 600; margin: 10px 0 4px; }
+  input, select, textarea { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px;
+         font: inherit; background: #fff; color: var(--ink); }
+  .row { display: flex; gap: 10px; } .row > div { flex: 1; }
   .tag { display: inline-block; padding: 2px 10px; border-radius: 999px; color: #fff; font-size: 0.75rem;
          background: var(--c, var(--accent)); }
-  .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; flex-wrap: wrap; }
+  .actions .spacer { flex: 1; }
+  .err { color: var(--danger); font-size: 0.85rem; margin-top: 8px; min-height: 1em; }
   @media (max-width: 640px) {
     .day { min-height: 62px; padding: 3px; }
     .ev { font-size: 0; height: 8px; padding: 0; border-radius: 4px; }
@@ -65,7 +74,7 @@
 <div class="wrap">
   <header>
     <h1>📅 Mis <span>exámenes</span></h1>
-    <a class="btn" id="add" target="_blank" rel="noopener">＋ Anotar examen</a>
+    <button class="btn" id="add">＋ Anotar examen</button>
   </header>
 
   <div class="nav">
@@ -83,106 +92,132 @@
   </section>
 </div>
 
-<dialog id="dlg">
-  <div id="dlgBody"></div>
+<!-- Ver examen -->
+<dialog id="dlgVer">
+  <div id="verBody"></div>
   <div class="actions">
-    <a class="btn ghost" id="dlgEdit" target="_blank" rel="noopener">Editar / borrar</a>
-    <button class="btn" onclick="document.getElementById('dlg').close()">Cerrar</button>
+    <button class="btn danger" id="verBorrar">Borrar</button>
+    <span class="spacer"></span>
+    <button class="btn ghost" id="verEditar">Editar</button>
+    <button class="btn" onclick="dlgVer.close()">Cerrar</button>
   </div>
+  <div class="err" id="verErr"></div>
+</dialog>
+
+<!-- Agregar / editar -->
+<dialog id="dlgForm">
+  <form id="form">
+    <h3 id="formTitle">Anotar examen</h3>
+    <label for="fMateria">Materia</label>
+    <input id="fMateria" required placeholder="Ej: Análisis Matemático II">
+    <div class="row">
+      <div><label for="fFecha">Fecha</label><input id="fFecha" type="date" required></div>
+      <div><label for="fHora">Hora</label><input id="fHora" type="time"></div>
+    </div>
+    <label for="fTipo">Tipo</label>
+    <select id="fTipo">
+      <option>Parcial</option><option>Recuperatorio</option><option>Final</option>
+      <option>Entrega / TP</option><option>Otro</option>
+    </select>
+    <label for="fLugar">Aula / Lugar</label>
+    <input id="fLugar" placeholder="Ej: Aula 204, Sede Centro">
+    <label for="fNotas">Notas</label>
+    <textarea id="fNotas" rows="2" placeholder="Temas, qué llevar, etc."></textarea>
+    <div class="err" id="formErr"></div>
+    <div class="actions">
+      <button type="button" class="btn ghost" onclick="dlgForm.close()">Cancelar</button>
+      <button type="submit" class="btn" id="fGuardar">Guardar</button>
+    </div>
+  </form>
 </dialog>
 
 <script>
-// Si la página se abre desde GitHub Pages, el usuario y el repo se detectan solos.
-const FALLBACK_OWNER = "Lucasvalotta";
-const FALLBACK_REPO = "calendario-examenes";
-
-function detectRepo() {
-  const host = location.hostname;
-  if (host.endsWith(".github.io")) {
-    const owner = host.replace(".github.io", "");
-    const repo = location.pathname.split("/").filter(Boolean)[0] || FALLBACK_REPO;
-    return { owner, repo };
-  }
-  return { owner: FALLBACK_OWNER, repo: FALLBACK_REPO };
-}
-const { owner: OWNER, repo: REPO } = detectRepo();
-const REPO_URL = `https://github.com/${OWNER}/${REPO}`;
-document.getElementById("add").href = `${REPO_URL}/issues/new?template=examen.yml`;
+// ⬇️ URL de la "aplicación web" de Google Apps Script (ver README)
+const API_URL = "";
 
 const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
 const DIAS = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
 const COLORS = { Parcial: "var(--Parcial)", Final: "var(--Final)", Recuperatorio: "var(--Recuperatorio)",
                  "Entrega / TP": "var(--Entrega)", Otro: "var(--Otro)" };
+const $ = id => document.getElementById(id);
+const dlgVer = $("dlgVer"), dlgForm = $("dlgForm");
 
 let exams = [];
 let view = new Date(); view.setDate(1);
+let editingId = null, currentIdx = null;
 
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 }
 function key(d) { return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; }
+function iso(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function parseISO(s) { const m = String(s).match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); return m ? new Date(+m[1], +m[2]-1, +m[3]) : null; }
+function color(t) { return COLORS[t] || COLORS.Otro; }
 
-// Lee el cuerpo de un issue creado con el formulario ("### Campo\n\nvalor")
-function parseBody(body) {
-  const out = {};
-  const parts = (body || "").split(/^###\s+/m).slice(1);
-  for (const p of parts) {
-    const [title, ...rest] = p.split("\n");
-    let val = rest.join("\n").trim();
-    if (val === "_No response_") val = "";
-    out[title.trim().toLowerCase()] = val;
-  }
-  return out;
-}
-function parseDate(s) {
-  if (!s) return null;
-  s = s.trim();
-  let m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
-  if (m) {
-    let y = +m[3]; if (y < 100) y += 2000;
-    return new Date(y, +m[2] - 1, +m[1]);
-  }
-  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
-  return null;
+// Clave guardada en este navegador
+function getClave() { try { return localStorage.getItem("clave-examenes") || ""; } catch { return ""; } }
+function setClave(c) { try { localStorage.setItem("clave-examenes", c); } catch {} }
+function askClave(msg) {
+  const c = prompt(msg || "Escribí la clave para anotar exámenes:");
+  if (c) setClave(c.trim());
+  return c ? c.trim() : null;
 }
 
-async function load() {
-  const status = document.getElementById("status");
-  try {
-    const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/issues?labels=examen&state=open&per_page=100`,
-                            { headers: { Accept: "application/vnd.github+json" } });
-    if (!res.ok) throw new Error(res.status);
-    const issues = await res.json();
-    exams = issues.map(i => {
-      const f = parseBody(i.body);
-      const date = parseDate(f["fecha"]);
-      const materia = f["materia"] || i.title.replace(/^Examen:\s*/i, "");
-      return { date, materia, hora: f["hora"], tipo: f["tipo"] || "Otro", lugar: f["aula / lugar"],
-               notas: f["notas"], url: i.html_url, rawFecha: f["fecha"] };
-    });
-    const bad = exams.filter(e => !e.date);
-    exams = exams.filter(e => e.date).sort((a, b) => a.date - b.date);
-    status.textContent = bad.length
-      ? `⚠️ ${bad.length} examen(es) con fecha mal escrita (usá DD/MM/AAAA): ${bad.map(b => b.materia).join(", ")}`
-      : "";
-  } catch (e) {
-    status.textContent = "No se pudieron cargar los exámenes. Probá recargar la página en un ratito.";
-  }
+function setData(list) {
+  exams = (list || []).map(e => ({ ...e, date: parseISO(e.fecha) }))
+                      .filter(e => e.date).sort((a, b) => a.date - b.date || String(a.hora).localeCompare(String(b.hora)));
   render();
 }
 
+async function load() {
+  if (!API_URL) { $("status").textContent = "⚙️ Falta configurar la planilla de Google (ver README)."; render(); return; }
+  try {
+    const res = await fetch(API_URL);
+    const data = await res.json();
+    setData(data.examenes);
+    $("status").textContent = "";
+  } catch {
+    $("status").textContent = "No se pudieron cargar los exámenes. Probá recargar la página.";
+    render();
+  }
+}
+
+// Envía un cambio; si la clave falta o es incorrecta, la pide y reintenta
+async function send(payload, errEl) {
+  if (!API_URL) { errEl.textContent = "Falta configurar la planilla de Google."; return false; }
+  let clave = getClave() || askClave();
+  if (!clave) return false;
+  for (let intento = 0; intento < 2; intento++) {
+    try {
+      const res = await fetch(API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
+                                         body: JSON.stringify({ ...payload, clave }) });
+      const data = await res.json();
+      if (data.ok) { setData(data.examenes); return true; }
+      if (data.error === "clave") {
+        clave = askClave("Clave incorrecta. Probá de nuevo:");
+        if (!clave) return false;
+        continue;
+      }
+      errEl.textContent = "No se pudo guardar (" + data.error + ").";
+      return false;
+    } catch {
+      errEl.textContent = "Error de conexión. Probá de nuevo.";
+      return false;
+    }
+  }
+  return false;
+}
+
 function render() {
-  document.getElementById("month").textContent = `${MESES[view.getMonth()]} ${view.getFullYear()}`;
-  const grid = document.getElementById("grid");
+  $("month").textContent = `${MESES[view.getMonth()]} ${view.getFullYear()}`;
+  const grid = $("grid");
   grid.innerHTML = DIAS.map(d => `<div class="dow">${d}</div>`).join("");
 
   const byDay = {};
   exams.forEach((e, i) => { (byDay[key(e.date)] ||= []).push(i); });
 
   const start = new Date(view);
-  const offset = (start.getDay() + 6) % 7; // lunes primero
-  start.setDate(start.getDate() - offset);
+  start.setDate(start.getDate() - (start.getDay() + 6) % 7); // lunes primero
   const todayKey = key(new Date());
 
   for (let i = 0; i < 42; i++) {
@@ -193,41 +228,85 @@ function render() {
     if (key(d) === todayKey) cls.push("today");
     const evs = (byDay[key(d)] || []).map(idx => {
       const e = exams[idx];
-      return `<button class="ev" style="--c:${COLORS[e.tipo] || COLORS.Otro}" onclick="show(${idx})"
-                title="${esc(e.materia)}">${e.hora ? esc(e.hora) + " " : ""}${esc(e.materia)}</button>`;
+      return `<button class="ev" style="--c:${color(e.tipo)}" data-idx="${idx}" title="${esc(e.materia)}">${e.hora ? esc(e.hora) + " " : ""}${esc(e.materia)}</button>`;
     }).join("");
-    grid.insertAdjacentHTML("beforeend", `<div class="${cls.join(" ")}"><span class="num">${d.getDate()}</span>${evs}</div>`);
+    grid.insertAdjacentHTML("beforeend", `<div class="${cls.join(" ")}" data-date="${iso(d)}"><span class="num">${d.getDate()}</span>${evs}</div>`);
   }
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const next = exams.map((e, i) => [e, i]).filter(([e]) => e.date >= today);
-  document.getElementById("list").innerHTML = next.length ? next.map(([e, i]) => {
+  $("list").innerHTML = next.length ? next.map(([e, i]) => {
     const days = Math.round((e.date - today) / 86400000);
     const left = days === 0 ? "¡Hoy!" : days === 1 ? "Mañana" : `Faltan ${days} días`;
-    return `<div class="item" style="--c:${COLORS[e.tipo] || COLORS.Otro}" onclick="show(${i})">
+    return `<div class="item" style="--c:${color(e.tipo)}" data-idx="${i}">
       <div class="date">${e.date.getDate()}<small>${MESES[e.date.getMonth()].slice(0, 3)}</small></div>
       <div class="info"><b>${esc(e.materia)}</b>
         <span>${esc(e.tipo)}${e.hora ? " · " + esc(e.hora) : ""}${e.lugar ? " · " + esc(e.lugar) : ""}</span></div>
       <div class="left">${left}</div></div>`;
-  }).join("") : `<p class="status">No hay exámenes anotados. ¡Tocá "＋ Anotar examen" para agregar uno!</p>`;
+  }).join("") : `<p class="status">No hay exámenes anotados. ¡Tocá "＋ Anotar examen" o un día del calendario!</p>`;
 }
 
 function show(i) {
-  const e = exams[i];
+  const e = exams[i]; currentIdx = i;
   const fecha = e.date.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-  document.getElementById("dlgBody").innerHTML = `
-    <span class="tag" style="--c:${COLORS[e.tipo] || COLORS.Otro}">${esc(e.tipo)}</span>
+  $("verBody").innerHTML = `
+    <span class="tag" style="--c:${color(e.tipo)}">${esc(e.tipo)}</span>
     <h3 style="margin-top:8px">${esc(e.materia)}</h3>
     <p>📅 ${esc(fecha)}${e.hora ? " · 🕒 " + esc(e.hora) : ""}</p>
     ${e.lugar ? `<p>📍 ${esc(e.lugar)}</p>` : ""}
     ${e.notas ? `<p style="white-space:pre-wrap">📝 ${esc(e.notas)}</p>` : ""}`;
-  document.getElementById("dlgEdit").href = e.url;
-  document.getElementById("dlg").showModal();
+  $("verErr").textContent = "";
+  dlgVer.showModal();
 }
 
-document.getElementById("prev").onclick = () => { view.setMonth(view.getMonth() - 1); render(); };
-document.getElementById("next").onclick = () => { view.setMonth(view.getMonth() + 1); render(); };
-document.getElementById("todayBtn").onclick = () => { view = new Date(); view.setDate(1); render(); };
+function openForm(exam, fecha) {
+  editingId = exam ? exam.id : null;
+  $("formTitle").textContent = exam ? "Editar examen" : "Anotar examen";
+  $("fMateria").value = exam?.materia || "";
+  $("fFecha").value = exam ? exam.fecha : (fecha || iso(new Date()));
+  $("fHora").value = exam?.hora || "";
+  $("fTipo").value = exam?.tipo || "Parcial";
+  $("fLugar").value = exam?.lugar || "";
+  $("fNotas").value = exam?.notas || "";
+  $("formErr").textContent = "";
+  dlgForm.showModal();
+}
+
+// Eventos
+$("add").onclick = () => openForm(null);
+$("grid").addEventListener("click", ev => {
+  const b = ev.target.closest(".ev");
+  if (b) return show(+b.dataset.idx);
+  const day = ev.target.closest(".day");
+  if (day) openForm(null, day.dataset.date);
+});
+$("list").addEventListener("click", ev => {
+  const it = ev.target.closest(".item");
+  if (it) show(+it.dataset.idx);
+});
+$("verEditar").onclick = () => { const e = exams[currentIdx]; dlgVer.close(); openForm(e); };
+$("verBorrar").onclick = async () => {
+  const e = exams[currentIdx];
+  if (!confirm(`¿Borrar "${e.materia}"?`)) return;
+  $("verBorrar").disabled = true;
+  if (await send({ accion: "borrar", id: e.id }, $("verErr"))) dlgVer.close();
+  $("verBorrar").disabled = false;
+};
+$("form").onsubmit = async ev => {
+  ev.preventDefault();
+  const examen = { materia: $("fMateria").value.trim(), fecha: $("fFecha").value, hora: $("fHora").value,
+                   tipo: $("fTipo").value, lugar: $("fLugar").value.trim(), notas: $("fNotas").value.trim() };
+  $("fGuardar").disabled = true; $("fGuardar").textContent = "Guardando…";
+  const ok = await send(editingId ? { accion: "editar", id: editingId, examen } : { accion: "agregar", examen }, $("formErr"));
+  $("fGuardar").disabled = false; $("fGuardar").textContent = "Guardar";
+  if (ok) {
+    dlgForm.close();
+    const d = parseISO(examen.fecha); view = new Date(d.getFullYear(), d.getMonth(), 1); render();
+  }
+};
+$("prev").onclick = () => { view.setMonth(view.getMonth() - 1); render(); };
+$("next").onclick = () => { view.setMonth(view.getMonth() + 1); render(); };
+$("todayBtn").onclick = () => { view = new Date(); view.setDate(1); render(); };
 load();
 </script>
 </body>
